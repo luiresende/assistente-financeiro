@@ -1,0 +1,230 @@
+/* ============================================================================
+   Assistente Financeiro — estilos
+   Paleta simples, foco em legibilidade e uso rápido no dia a dia.
+   ========================================================================== */
+:root {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --surface-2: #273449;
+  --border: #334155;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --income: #22c55e;
+  --expense: #ef4444;
+  --warn: #f59e0b;
+  --good: #22c55e;
+  --bad: #ef4444;
+  --info: #38bdf8;
+  --radius: 12px;
+  --shadow: 0 4px 20px rgba(0, 0, 0, .25);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+}
+.hidden { display: none !important; }
+.muted { color: var(--muted); font-size: 14px; }
+.right { text-align: right; }
+.empty { padding: 24px 0; text-align: center; }
+
+/* ------------------------- Botões ------------------------- */
+.btn {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--surface-2);
+  color: var(--text);
+  transition: background .15s, border-color .15s;
+}
+.btn:hover { background: #324056; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-ghost { background: transparent; border-color: var(--border); }
+.btn-ghost:hover { background: var(--surface-2); }
+.btn-sm { padding: 5px 10px; font-size: 13px; }
+.btn-block { width: 100%; }
+.btn-danger { color: var(--expense); }
+.btn-icon {
+  background: transparent; border: none; color: var(--muted);
+  cursor: pointer; font-size: 16px; padding: 4px 8px; border-radius: 6px;
+}
+.btn-icon:hover { background: var(--surface-2); color: var(--text); }
+
+/* ------------------------- Login ------------------------- */
+.auth-screen {
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: radial-gradient(1200px 600px at 50% -10%, #1e293b, var(--bg));
+}
+.auth-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+  width: 100%; max-width: 380px;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.auth-logo { font-size: 44px; }
+.auth-card h1 { margin: 8px 0 4px; font-size: 22px; }
+.auth-sub { color: var(--muted); margin: 0 0 24px; }
+.auth-card form { text-align: left; display: grid; gap: 14px; }
+.auth-card label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.auth-error {
+  background: rgba(239, 68, 68, .12);
+  border: 1px solid rgba(239, 68, 68, .4);
+  color: #fca5a5;
+  padding: 10px 12px; border-radius: 8px; font-size: 13px;
+}
+.auth-toggle { margin: 18px 0 0; font-size: 14px; color: var(--muted); }
+.auth-toggle a { color: var(--primary); text-decoration: none; font-weight: 600; }
+.auth-toggle a:hover { text-decoration: underline; }
+
+input, select {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  width: 100%;
+}
+input:focus, select:focus { outline: 2px solid var(--primary); border-color: transparent; }
+
+/* ------------------------- Layout do app ------------------------- */
+.app { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 240px; flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  padding: 20px 14px;
+}
+.brand { font-size: 20px; font-weight: 700; margin: 4px 8px 24px; }
+.brand span { font-size: 18px; }
+.nav { display: grid; gap: 4px; }
+.nav-item {
+  text-align: left;
+  background: transparent; border: none; color: var(--muted);
+  padding: 11px 14px; border-radius: 8px; font-size: 15px; cursor: pointer;
+}
+.nav-item:hover { background: var(--surface-2); color: var(--text); }
+.nav-item.active { background: var(--primary); color: #fff; font-weight: 600; }
+.sidebar-footer { margin-top: auto; display: grid; gap: 16px; }
+.month-picker label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.user-box { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.user-email { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.content { flex: 1; padding: 28px 32px; overflow-y: auto; max-height: 100vh; }
+.view-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px; gap: 12px; flex-wrap: wrap;
+}
+.view-head h2 { margin: 0; font-size: 24px; }
+
+/* ------------------------- Cards ------------------------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.card h3 { margin: 0 0 16px; font-size: 16px; }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+.stat { display: flex; flex-direction: column; gap: 8px; }
+.stat-label { color: var(--muted); font-size: 13px; }
+.stat-value { font-size: 26px; font-weight: 700; }
+.stat-value.income { color: var(--income); }
+.stat-value.expense { color: var(--expense); }
+
+.dash-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; }
+.chart-wrap { position: relative; height: 280px; }
+
+/* ------------------------- Insights ------------------------- */
+.insights { display: grid; gap: 10px; }
+.insight {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 12px 14px; border-radius: 8px; font-size: 14px; line-height: 1.4;
+  background: var(--surface-2);
+  border-left: 3px solid var(--border);
+}
+.insight.good { border-left-color: var(--good); }
+.insight.warn { border-left-color: var(--warn); }
+.insight.bad  { border-left-color: var(--bad); }
+.insight.info { border-left-color: var(--info); }
+.insight .ico { font-size: 16px; }
+
+/* ------------------------- Tabela ------------------------- */
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { padding: 11px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+.table th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.table td.right, .table th.right { text-align: right; }
+.amount-income { color: var(--income); font-weight: 600; }
+.amount-expense { color: var(--expense); font-weight: 600; }
+.cat-tag { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ------------------------- Form de lançamento ------------------------- */
+.entry-form { display: grid; gap: 14px; }
+.form-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: end; }
+.form-row label, .entry-form > label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.form-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* ------------------------- Orçamento ------------------------- */
+.budget-list { display: grid; gap: 16px; }
+.budget-row { display: grid; grid-template-columns: 180px 140px 1fr; gap: 16px; align-items: center; }
+.budget-cat { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.budget-bar { background: var(--surface-2); border-radius: 999px; height: 10px; overflow: hidden; position: relative; }
+.budget-bar > span { display: block; height: 100%; background: var(--good); border-radius: 999px; transition: width .3s; }
+.budget-bar.warn > span { background: var(--warn); }
+.budget-bar.over > span { background: var(--bad); }
+.budget-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* ------------------------- Categorias ------------------------- */
+.category-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.cat-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 999px; padding: 7px 7px 7px 14px; font-size: 14px;
+}
+.cat-chip .kind { font-size: 11px; color: var(--muted); }
+
+/* ------------------------- Chat ------------------------- */
+.chat-card { display: flex; flex-direction: column; height: calc(100vh - 180px); min-height: 420px; }
+.chat-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 6px; }
+.msg { max-width: 80%; padding: 11px 14px; border-radius: 12px; font-size: 14px; line-height: 1.45; white-space: pre-wrap; }
+.msg.bot { background: var(--surface-2); align-self: flex-start; border-bottom-left-radius: 4px; }
+.msg.user { background: var(--primary); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+.chat-suggestions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.chip {
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+  border-radius: 999px; padding: 7px 14px; font-size: 13px; cursor: pointer;
+}
+.chip:hover { background: #324056; }
+.chat-form { display: flex; gap: 10px; }
+.chat-form input { flex: 1; }
+
+/* ------------------------- Responsivo ------------------------- */
+@media (max-width: 820px) {
+  .app { flex-direction: column; }
+  .sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px; }
+  .brand { margin: 0 12px 0 4px; }
+  .nav { grid-auto-flow: column; grid-template-columns: none; overflow-x: auto; }
+  .sidebar-footer { margin: 0 0 0 auto; flex-direction: row; align-items: center; }
+  .content { max-height: none; padding: 20px 16px; }
+  .cards { grid-template-columns: 1fr; }
+  .dash-grid { grid-template-columns: 1fr; }
+  .form-row { grid-template-columns: 1fr 1fr; }
+  .budget-row { grid-template-columns: 1fr; gap: 6px; }
+}

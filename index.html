@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assistente Financeiro</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💸</text></svg>" />
+</head>
+<body>
+
+  <!-- =================== TELA DE LOGIN =================== -->
+  <div id="auth-screen" class="auth-screen hidden">
+    <div class="auth-card">
+      <div class="auth-logo">💸</div>
+      <h1>Assistente Financeiro</h1>
+      <p class="auth-sub">Entre para acessar suas finanças.</p>
+
+      <form id="auth-form">
+        <label>E-mail
+          <input type="email" id="auth-email" autocomplete="email" required />
+        </label>
+        <label>Senha
+          <input type="password" id="auth-password" autocomplete="current-password"
+                 minlength="6" required />
+        </label>
+        <div id="auth-error" class="auth-error hidden"></div>
+        <button type="submit" id="auth-submit" class="btn btn-primary btn-block">Entrar</button>
+      </form>
+
+      <p class="auth-toggle">
+        <span id="auth-toggle-text">Não tem conta?</span>
+        <a href="#" id="auth-toggle-link">Criar conta</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- =================== APP =================== -->
+  <div id="app" class="app hidden">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">💸 <span>Finanças</span></div>
+      <nav class="nav">
+        <button class="nav-item active" data-view="dashboard">📊 Dashboard</button>
+        <button class="nav-item" data-view="entries">🧾 Lançamentos</button>
+        <button class="nav-item" data-view="budget">🎯 Orçamento</button>
+        <button class="nav-item" data-view="assistant">🤖 Assistente</button>
+        <button class="nav-item" data-view="settings">⚙️ Categorias</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="month-picker">
+          <label>Mês</label>
+          <input type="month" id="month-select" />
+        </div>
+        <div class="user-box">
+          <span id="user-email" class="user-email"></span>
+          <button id="logout-btn" class="btn btn-ghost btn-sm">Sair</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Conteúdo -->
+    <main class="content">
+
+      <!-- ---------- DASHBOARD ---------- -->
+      <section class="view" data-view="dashboard">
+        <header class="view-head">
+          <h2>Dashboard</h2>
+          <span id="dash-month" class="muted"></span>
+        </header>
+
+        <div class="cards">
+          <div class="card stat">
+            <span class="stat-label">Receitas</span>
+            <span class="stat-value income" id="stat-income">R$ 0,00</span>
+          </div>
+          <div class="card stat">
+            <span class="stat-label">Despesas</span>
+            <span class="stat-value expense" id="stat-expense">R$ 0,00</span>
+          </div>
+          <div class="card stat">
+            <span class="stat-label">Saldo</span>
+            <span class="stat-value" id="stat-balance">R$ 0,00</span>
+          </div>
+        </div>
+
+        <div class="dash-grid">
+          <div class="card">
+            <h3>Gastos por categoria</h3>
+            <div class="chart-wrap"><canvas id="chart-categories"></canvas></div>
+            <p id="chart-empty" class="muted empty hidden">Sem despesas neste mês.</p>
+          </div>
+          <div class="card">
+            <h3>🤖 Insights do assistente</h3>
+            <div id="insights-list" class="insights"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- LANÇAMENTOS ---------- -->
+      <section class="view hidden" data-view="entries">
+        <header class="view-head">
+          <h2>Lançamentos</h2>
+          <button id="open-entry-form" class="btn btn-primary">+ Novo lançamento</button>
+        </header>
+
+        <form id="entry-form" class="card entry-form hidden">
+          <input type="hidden" id="entry-id" />
+          <div class="form-row">
+            <label>Tipo
+              <select id="entry-type">
+                <option value="expense">Despesa</option>
+                <option value="income">Receita</option>
+              </select>
+            </label>
+            <label>Valor (R$)
+              <input type="number" id="entry-amount" step="0.01" min="0" required />
+            </label>
+            <label>Data
+              <input type="date" id="entry-date" required />
+            </label>
+            <label>Categoria
+              <select id="entry-category"></select>
+            </label>
+          </div>
+          <label>Descrição (opcional)
+            <input type="text" id="entry-note" maxlength="120" placeholder="Ex.: mercado da semana" />
+          </label>
+          <div class="form-actions">
+            <button type="button" id="cancel-entry" class="btn btn-ghost">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+          </div>
+        </form>
+
+        <div class="card">
+          <table class="table" id="entries-table">
+            <thead>
+              <tr>
+                <th>Data</th><th>Categoria</th><th>Descrição</th>
+                <th class="right">Valor</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="entries-body"></tbody>
+          </table>
+          <p id="entries-empty" class="muted empty hidden">Nenhum lançamento neste mês.</p>
+        </div>
+      </section>
+
+      <!-- ---------- ORÇAMENTO ---------- -->
+      <section class="view hidden" data-view="budget">
+        <header class="view-head">
+          <h2>Orçamento mensal</h2>
+          <span class="muted">Defina um teto de gasto por categoria.</span>
+        </header>
+        <div class="card">
+          <div id="budget-list" class="budget-list"></div>
+        </div>
+      </section>
+
+      <!-- ---------- ASSISTENTE (CHAT) ---------- -->
+      <section class="view hidden" data-view="assistant">
+        <header class="view-head">
+          <h2>🤖 Assistente</h2>
+          <span class="muted">Tire dúvidas sobre suas finanças do mês.</span>
+        </header>
+        <div class="card chat-card">
+          <div id="chat-log" class="chat-log"></div>
+          <div class="chat-suggestions" id="chat-suggestions">
+            <button class="chip" data-q="Qual meu saldo?">Qual meu saldo?</button>
+            <button class="chip" data-q="Onde gastei mais?">Onde gastei mais?</button>
+            <button class="chip" data-q="Como está meu orçamento?">Como está meu orçamento?</button>
+            <button class="chip" data-q="Onde posso cortar?">Onde posso cortar?</button>
+          </div>
+          <form id="chat-form" class="chat-form">
+            <input type="text" id="chat-input" placeholder="Pergunte algo..." autocomplete="off" />
+            <button type="submit" class="btn btn-primary">Enviar</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ---------- CATEGORIAS ---------- -->
+      <section class="view hidden" data-view="settings">
+        <header class="view-head">
+          <h2>Categorias</h2>
+          <span class="muted">Personalize as categorias de receita e despesa.</span>
+        </header>
+        <div class="card">
+          <form id="category-form" class="form-row">
+            <label>Nome
+              <input type="text" id="cat-name" placeholder="Ex.: Pets" required />
+            </label>
+            <label>Ícone
+              <input type="text" id="cat-icon" maxlength="2" placeholder="🐾" />
+            </label>
+            <label>Tipo
+              <select id="cat-kind">
+                <option value="expense">Despesa</option>
+                <option value="income">Receita</option>
+              </select>
+            </label>
+            <button type="submit" class="btn btn-primary">Adicionar</button>
+          </form>
+          <div id="category-list" class="category-list"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Firebase SDK (compat). Em modo local sem config, o app ignora e usa localStorage. -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <!-- Chart.js para o gráfico de categorias -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <!-- App -->
+  <script src="firebase-config.js"></script>
+  <script src="js/model.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

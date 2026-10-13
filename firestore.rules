@@ -1,0 +1,26 @@
+rules_version = '2';
+
+// ============================================================================
+// Firestore Security Rules — assistente financeiro
+// ----------------------------------------------------------------------------
+// Modelo de dados (tudo sob o uid do dono):
+//   users/{uid}/entries/{entryId}   -> lançamentos (receitas/despesas)
+//   users/{uid}/meta/settings       -> categorias + orçamentos
+//
+// Regra única e simples: cada usuário autenticado lê e escreve SOMENTE o que
+// está sob o próprio uid. Ninguém acessa dados de outra pessoa.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // Tudo que vive sob users/{uid}/... pertence a esse usuário.
+    match /users/{uid}/{document=**} {
+      allow read, write: if isOwner(uid);
+    }
+  }
+}

@@ -1,0 +1,11 @@
+# Nada sensível é versionado aqui. A config do Firebase (firebase-config.js)
+# é pública por natureza (identifica o projeto no cliente), então pode ir junto.
+
+# SO / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# dependências (não usamos bundler, mas por garantia)
+node_modules/
