@@ -16,12 +16,13 @@
 
   const state = {
     entries: [],
-    settings: { categories: [], budgets: {} },
+    settings: { categories: [], budgets: {}, goals: [] },
     monthKey: M.currentMonthKey(),
     user: null,
   };
 
-  let chart = null;
+  let chart = null;         // gráfico de categorias (dashboard)
+  let historyChart = null;  // gráfico de histórico (relatórios)
 
   // --- Helpers de DOM --------------------------------------------------------
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -110,6 +111,8 @@
         $$('.nav-item').forEach((b) => b.classList.toggle('active', b === btn));
         $$('.view').forEach((v) => v.classList.toggle('hidden', v.dataset.view !== view));
         if (view === 'dashboard') renderDashboard();
+        if (view === 'reports') renderReports();
+        if (view === 'goals') renderGoals();
       });
     });
 
@@ -133,6 +136,8 @@
     renderDashboard();
     renderEntries();
     renderBudget();
+    renderReports();
+    renderGoals();
     renderCategories();
     fillCategoryDropdown();
   }
@@ -366,6 +371,280 @@
   }
 
   // ==========================================================================
+  //  RELATÓRIOS (histórico, comparativo, tendência)
+  // ==========================================================================
+  function renderReports() {
+    renderHistoryChart();
+    renderComparison();
+    renderTrend();
+  }
+
+  function renderHistoryChart() {
+    const series = M.monthlySeries(state.entries, state.monthKey, 6);
+    const hasData = series.some((s) => s.income > 0 || s.expense > 0);
+    const canvas = $('#chart-history');
+    const empty = $('#history-empty');
+
+    if (!hasData || typeof Chart === 'undefined') {
+      show(empty);
+      hide(canvas);
+      if (!hasData) empty.textContent = 'Sem dados suficientes ainda.';
+      else empty.textContent = 'Gráfico indisponível (Chart.js não carregou).';
+      if (historyChart) { historyChart.destroy(); historyChart = null; }
+      return;
+    }
+    hide(empty);
+    show(canvas);
+
+    if (historyChart) historyChart.destroy();
+    historyChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: series.map((s) => s.label),
+        datasets: [
+          { label: 'Receitas', data: series.map((s) => s.income), backgroundColor: '#22c55e' },
+          { label: 'Despesas', data: series.map((s) => s.expense), backgroundColor: '#ef4444' },
+          { label: 'Saldo', type: 'line', data: series.map((s) => s.balance),
+            borderColor: '#6366f1', backgroundColor: '#6366f1', tension: 0.3, borderWidth: 2 },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { ticks: { color: '#94a3b8' }, grid: { color: '#273449' } },
+          y: { ticks: { color: '#94a3b8', callback: (v) => 'R$ ' + v }, grid: { color: '#273449' } },
+        },
+        plugins: {
+          legend: { labels: { color: '#e2e8f0' } },
+          tooltip: { callbacks: { label: (ctx) => ctx.dataset.label + ': ' + M.formatBRL(ctx.parsed.y) } },
+        },
+      },
+    });
+  }
+
+  function renderComparison() {
+    const cmp = M.monthComparison(state.entries, state.monthKey, state.settings.categories);
+    const head = $('#comparison-head');
+    const body = $('#comparison-body');
+    const empty = $('#comparison-empty');
+
+    const arrow = cmp.deltaExpense > 0 ? '🔺' : cmp.deltaExpense < 0 ? '🔻' : '▪️';
+    const cls = cmp.deltaExpense > 0 ? 'amount-expense' : cmp.deltaExpense < 0 ? 'amount-income' : '';
+    head.innerHTML =
+      'Despesas: ' + M.formatBRL(cmp.previous.expense) + ' → ' + M.formatBRL(cmp.current.expense) +
+      ' <span class="' + cls + '">' + arrow + ' ' + M.formatBRL(Math.abs(cmp.deltaExpense)) +
+      ' (' + (cmp.deltaPct >= 0 ? '+' : '') + cmp.deltaPct.toFixed(0) + '%)</span>' +
+      '<div class="muted">' + M.monthLabel(cmp.previousKey) + ' vs. ' + M.monthLabel(cmp.currentKey) + '</div>';
+
+    if (cmp.categories.length === 0) {
+      body.innerHTML = '';
+      show(empty);
+      return;
+    }
+    hide(empty);
+    body.innerHTML = cmp.categories.map((c) => {
+      const dcls = c.delta > 0 ? 'amount-expense' : c.delta < 0 ? 'amount-income' : 'muted';
+      const sign = c.delta > 0 ? '+' : '';
+      return '<tr>' +
+        '<td>' + c.icon + ' ' + escapeHTML(c.name) + '</td>' +
+        '<td class="right">' + M.formatBRL(c.before) + '</td>' +
+        '<td class="right">' + M.formatBRL(c.now) + '</td>' +
+        '<td class="right ' + dcls + '">' + sign + M.formatBRL(c.delta) +
+          (c.before > 0 ? ' (' + sign + c.pct.toFixed(0) + '%)' : '') + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function renderTrend() {
+    const list = $('#trend-list');
+    const items = M.trendInsights(state.entries, state.monthKey, 6);
+    const icons = { good: '✅', warn: '⚠️', bad: '🚨', info: 'ℹ️' };
+    list.innerHTML = items.map((i) =>
+      '<div class="insight ' + i.level + '">' +
+      '<span class="ico">' + (icons[i.level] || 'ℹ️') + '</span>' +
+      '<span>' + escapeHTML(i.text) + '</span></div>'
+    ).join('');
+  }
+
+  // ==========================================================================
+  //  METAS DE ECONOMIA
+  // ==========================================================================
+  function setupGoals() {
+    const form = $('#goal-form');
+    $('#open-goal-form').addEventListener('click', () => openGoalForm());
+    $('#cancel-goal').addEventListener('click', () => hide(form));
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = $('#goal-id').value;
+      const name = $('#goal-name').value.trim();
+      const target = parseFloat($('#goal-target').value) || 0;
+      const deadline = $('#goal-deadline').value || '';
+      if (!name || target <= 0) return;
+
+      if (id) {
+        const g = state.settings.goals.find((x) => x.id === id);
+        if (g) { g.name = name; g.target = target; g.deadline = deadline; }
+      } else {
+        state.settings.goals.push({
+          id: 'g-' + Date.now().toString(36),
+          name, target, deadline, contributions: [],
+        });
+      }
+      await Store.saveSettings(state.settings);
+      hide(form);
+      renderGoals();
+    });
+  }
+
+  function openGoalForm(goal) {
+    const form = $('#goal-form');
+    $('#goal-id').value = goal ? goal.id : '';
+    $('#goal-name').value = goal ? goal.name : '';
+    $('#goal-target').value = goal ? goal.target : '';
+    $('#goal-deadline').value = goal ? (goal.deadline || '') : '';
+    show(form);
+    $('#goal-name').focus();
+  }
+
+  function renderGoals() {
+    const container = $('#goals-list');
+    const empty = $('#goals-empty');
+    const goals = state.settings.goals || [];
+
+    if (goals.length === 0) {
+      container.innerHTML = '';
+      show(empty);
+      return;
+    }
+    hide(empty);
+
+    container.innerHTML = goals.map((g) => {
+      const p = M.goalProgress(g);
+      const barCls = p.done ? 'done' : '';
+      const deadline = g.deadline ? '<span class="muted">até ' + formatDate(g.deadline) + '</span>' : '';
+      return '<div class="card goal-card">' +
+        '<div class="goal-top">' +
+          '<div><strong>' + escapeHTML(g.name) + '</strong> ' + deadline + '</div>' +
+          '<div class="goal-actions">' +
+            '<button class="btn-icon" data-editgoal="' + g.id + '" title="Editar">✏️</button>' +
+            '<button class="btn-icon btn-danger" data-delgoal="' + g.id + '" title="Excluir">🗑️</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="budget-bar ' + barCls + '"><span style="width:' + p.pct + '%"></span></div>' +
+        '<div class="goal-meta">' +
+          M.formatBRL(p.saved) + ' de ' + M.formatBRL(p.target) +
+          ' (' + p.pct.toFixed(0) + '%)' +
+          (p.done ? ' — 🎉 meta atingida!' : ' — faltam ' + M.formatBRL(p.remaining)) +
+        '</div>' +
+        '<div class="goal-add">' +
+          '<input type="number" step="0.01" min="0" placeholder="Valor do aporte" data-amount="' + g.id + '" />' +
+          '<button class="btn btn-primary btn-sm" data-contribute="' + g.id + '">+ Guardar</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    $$('[data-editgoal]', container).forEach((b) =>
+      b.addEventListener('click', () => {
+        const g = goals.find((x) => x.id === b.dataset.editgoal);
+        if (g) openGoalForm(g);
+      })
+    );
+    $$('[data-delgoal]', container).forEach((b) =>
+      b.addEventListener('click', async () => {
+        if (!confirm('Excluir esta meta e seus aportes?')) return;
+        state.settings.goals = state.settings.goals.filter((x) => x.id !== b.dataset.delgoal);
+        await Store.saveSettings(state.settings);
+        renderGoals();
+      })
+    );
+    $$('[data-contribute]', container).forEach((b) =>
+      b.addEventListener('click', async () => {
+        const id = b.dataset.contribute;
+        const input = container.querySelector('[data-amount="' + id + '"]');
+        const amount = parseFloat(input.value) || 0;
+        if (amount <= 0) { input.focus(); return; }
+        const g = state.settings.goals.find((x) => x.id === id);
+        if (!g) return;
+        if (!Array.isArray(g.contributions)) g.contributions = [];
+        g.contributions.push({ date: M.todayISO(), amount });
+        await Store.saveSettings(state.settings);
+        renderGoals();
+      })
+    );
+  }
+
+  // ==========================================================================
+  //  CSV (exportar / importar)
+  // ==========================================================================
+  function setupCSV() {
+    $('#export-csv').addEventListener('click', exportCSV);
+    $('#import-csv').addEventListener('change', importCSV);
+  }
+
+  function exportCSV() {
+    const status = $('#csv-status');
+    if (!state.entries.length) {
+      status.textContent = 'Nada para exportar — você ainda não tem lançamentos.';
+      return;
+    }
+    const csv = M.entriesToCSV(state.entries, state.settings.categories);
+    // BOM para o Excel reconhecer UTF-8 (acentos corretos).
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'lancamentos-' + M.todayISO() + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    status.textContent = 'Exportado ' + state.entries.length + ' lançamento(s).';
+  }
+
+  async function importCSV(e) {
+    const status = $('#csv-status');
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = M.csvToEntries(text, state.settings.categories);
+
+      if (parsed.entries.length === 0) {
+        status.textContent = 'Nenhum lançamento válido encontrado no arquivo.' +
+          (parsed.errors.length ? ' (' + parsed.errors.length + ' linha(s) com problema)' : '');
+        e.target.value = '';
+        return;
+      }
+
+      const resumo = parsed.entries.length + ' lançamento(s)' +
+        (parsed.newCategories.length ? ' e ' + parsed.newCategories.length + ' categoria(s) nova(s)' : '') +
+        (parsed.errors.length ? ' (' + parsed.errors.length + ' linha(s) ignorada(s))' : '');
+      if (!confirm('Importar ' + resumo + '?')) { e.target.value = ''; return; }
+
+      // Cria categorias novas antes dos lançamentos (para o id bater).
+      if (parsed.newCategories.length) {
+        parsed.newCategories.forEach((c) => {
+          if (!state.settings.categories.some((x) => x.id === c.id)) {
+            state.settings.categories.push(c);
+          }
+        });
+        await Store.saveSettings(state.settings);
+      }
+
+      await Store.saveEntriesBatch(parsed.entries);
+      state.entries = await Store.listEntries();
+      renderAll();
+      status.textContent = 'Importado: ' + resumo + '.';
+    } catch (err) {
+      status.textContent = 'Falha ao importar: ' + (err && err.message ? err.message : err);
+    } finally {
+      e.target.value = ''; // permite reimportar o mesmo arquivo
+    }
+  }
+
+  // ==========================================================================
   //  CATEGORIAS
   // ==========================================================================
   function setupCategories() {
@@ -434,13 +713,15 @@
     // mensagem de boas-vindas
     addChatMessage('bot',
       'Olá! Sou seu assistente financeiro. Pergunte sobre o mês selecionado — ' +
-      'por exemplo: "qual meu saldo?", "onde gastei mais?" ou "onde posso cortar?".');
+      'por exemplo: "qual meu saldo?", "onde gastei mais?", "onde posso cortar?", ' +
+      '"qual a tendência?" ou "e minhas metas?".');
   }
 
   function askAssistant(question) {
     addChatMessage('user', question);
     const answer = M.answerQuestion(
-      question, state.entries, state.monthKey, state.settings.categories, state.settings.budgets
+      question, state.entries, state.monthKey,
+      state.settings.categories, state.settings.budgets, state.settings.goals
     );
     // pequeno atraso para dar sensação de resposta
     setTimeout(() => addChatMessage('bot', answer), 180);
@@ -494,6 +775,8 @@
     setupAuthUI();
     setupNav();
     setupEntries();
+    setupGoals();
+    setupCSV();
     setupCategories();
     setupChat();
 

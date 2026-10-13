@@ -250,7 +250,7 @@
   //  CHAT POR REGRAS — interpreta a pergunta do usuário e responde usando as
   //  mesmas agregações. Casamento por palavras-chave (intents). Devolve string.
   // --------------------------------------------------------------------------
-  function answerQuestion(question, entries, monthKey, categories, budgets) {
+  function answerQuestion(question, entries, monthKey, categories, budgets, goals) {
     const q = (question || '').toLowerCase().trim();
     const totals = monthlyTotals(entries, monthKey);
     const byCat = expenseByCategory(entries, monthKey, categories);
@@ -259,7 +259,7 @@
 
     if (!q) {
       return 'Pode perguntar coisas como: "qual meu saldo?", "onde gastei mais?", ' +
-        '"como está meu orçamento?" ou "onde posso cortar?".';
+        '"como está meu orçamento?", "e minhas metas?" ou "qual a tendência?".';
     }
 
     // saldo
@@ -323,6 +323,32 @@
         ' em ' + totals.count + ' lançamento(s).';
     }
 
+    // tendência / histórico / evolução / comparar com mês anterior
+    if (/(tend[êe]ncia|hist[óo]rico|evolu|[úu]ltimos meses|m[êe]s passado|m[êe]s anterior|compar)/.test(q)) {
+      const tr = trendInsights(entries, monthKey, 6);
+      const cmp = monthComparison(entries, monthKey, categories);
+      const arrow = cmp.deltaExpense > 0 ? 'subiram' : cmp.deltaExpense < 0 ? 'caíram' : 'ficaram iguais';
+      const head = 'Vs. ' + monthLabel(cmp.previousKey) + ', suas despesas ' + arrow + ' ' +
+        formatBRL(Math.abs(cmp.deltaExpense)) + ' (' +
+        (cmp.deltaPct >= 0 ? '+' : '') + cmp.deltaPct.toFixed(0) + '%).';
+      return head + '\n' + tr.map((i) => '• ' + i.text).join('\n');
+    }
+
+    // metas de economia
+    if (/(meta|metas|objetivo|guard|reserva|poupança|poupanca)/.test(q)) {
+      const gs = goals || [];
+      if (gs.length === 0) {
+        return 'Você ainda não tem metas. Vá em Metas e crie uma (ex.: "Reserva ' +
+          'de emergência: R$ 5.000") para eu acompanhar seu progresso.';
+      }
+      const linhas = gs.map((g) => {
+        const p = goalProgress(g);
+        return '• ' + g.name + ': ' + formatBRL(p.saved) + ' de ' + formatBRL(p.target) +
+          ' (' + p.pct.toFixed(0) + '%)' + (p.done ? ' 🎉' : ' — faltam ' + formatBRL(p.remaining));
+      }).join('\n');
+      return 'Suas metas:\n' + linhas;
+    }
+
     // resumo / como estou / situação
     if (/(resumo|como.*(estou|tô|to|vou|van)|situaç|situac|geral|panorama)/.test(q)) {
       const ins = buildInsights(entries, monthKey, categories, budgets);
@@ -336,12 +362,254 @@
       '\n\nTente: "qual meu saldo?", "onde gastei mais?", "onde posso cortar?".';
   }
 
+  // ==========================================================================
+  //  HISTÓRICO / TENDÊNCIA (Relatórios)
+  // ==========================================================================
+  // Mês anterior a uma chave 'YYYY-MM'.
+  function previousMonthKey(key) {
+    const [y, m] = String(key).split('-').map(Number);
+    const d = new Date(y, (m - 1) - 1, 1); // mês anterior
+    return monthKeyFor(d);
+  }
+
+  // Série dos últimos N meses terminando em endKey (inclusive). Devolve
+  // [{ key, label, income, expense, balance }] do mais antigo ao mais novo.
+  function monthlySeries(entries, endKey, n) {
+    const count = n || 6;
+    const [y, m] = String(endKey).split('-').map(Number);
+    const out = [];
+    for (let i = count - 1; i >= 0; i--) {
+      const d = new Date(y, (m - 1) - i, 1);
+      const key = monthKeyFor(d);
+      const t = monthlyTotals(entries, key);
+      out.push({ key, label: shortMonthLabel(key), income: t.income, expense: t.expense, balance: t.balance });
+    }
+    return out;
+  }
+
+  // 'YYYY-MM' -> rótulo curto "out/26" (para eixos de gráfico).
+  function shortMonthLabel(key) {
+    const abbr = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun',
+      'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+    const [y, m] = String(key).split('-').map(Number);
+    if (!y || !m) return String(key);
+    return abbr[m - 1] + '/' + String(y).slice(-2);
+  }
+
+  // Comparativo do mês atual vs. o anterior, no total e por categoria.
+  // Devolve { current, previous, deltaExpense, deltaPct, categories:[...] }
+  // onde cada categoria traz { name, icon, now, before, delta, pct }.
+  function monthComparison(entries, monthKey, categories) {
+    const prevKey = previousMonthKey(monthKey);
+    const cur = monthlyTotals(entries, monthKey);
+    const prev = monthlyTotals(entries, prevKey);
+
+    const curByCat = {};
+    expenseByCategory(entries, monthKey, categories).forEach((r) => (curByCat[r.categoryId] = r));
+    const prevByCat = {};
+    expenseByCategory(entries, prevKey, categories).forEach((r) => (prevByCat[r.categoryId] = r));
+
+    const ids = new Set([...Object.keys(curByCat), ...Object.keys(prevByCat)]);
+    const cats = [];
+    ids.forEach((id) => {
+      const now = curByCat[id] ? curByCat[id].total : 0;
+      const before = prevByCat[id] ? prevByCat[id].total : 0;
+      const ref = curByCat[id] || prevByCat[id];
+      const delta = now - before;
+      const pct = before > 0 ? (delta / before) * 100 : (now > 0 ? 100 : 0);
+      cats.push({ categoryId: id, name: ref.name, icon: ref.icon, now, before, delta, pct });
+    });
+    cats.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+
+    const deltaExpense = cur.expense - prev.expense;
+    const deltaPct = prev.expense > 0 ? (deltaExpense / prev.expense) * 100 : (cur.expense > 0 ? 100 : 0);
+
+    return {
+      currentKey: monthKey, previousKey: prevKey,
+      current: cur, previous: prev,
+      deltaExpense, deltaPct, categories: cats,
+    };
+  }
+
+  // Insights de tendência olhando a série dos últimos meses (texto).
+  function trendInsights(entries, endKey, n) {
+    const series = monthlySeries(entries, endKey, n || 4);
+    const withData = series.filter((s) => s.income > 0 || s.expense > 0);
+    const out = [];
+    if (withData.length < 2) {
+      out.push({ level: 'info', text: 'Ainda não há meses suficientes para analisar tendência. ' +
+        'Siga lançando que em alguns meses eu mostro a evolução.' });
+      return out;
+    }
+    // tendência de despesa: últimos 3 pontos com dados
+    const tail = withData.slice(-3);
+    let rising = true, falling = true;
+    for (let i = 1; i < tail.length; i++) {
+      if (!(tail[i].expense > tail[i - 1].expense)) rising = false;
+      if (!(tail[i].expense < tail[i - 1].expense)) falling = false;
+    }
+    if (tail.length >= 3 && rising) {
+      out.push({ level: 'warn', text: 'Seus gastos vêm subindo há ' + tail.length +
+        ' meses seguidos. Vale olhar o que está puxando esse aumento.' });
+    } else if (tail.length >= 3 && falling) {
+      out.push({ level: 'good', text: 'Seus gastos vêm caindo há ' + tail.length +
+        ' meses seguidos. Ótima trajetória!' });
+    }
+    // média de saldo
+    const avgBalance = withData.reduce((s, m) => s + m.balance, 0) / withData.length;
+    out.push({
+      level: avgBalance >= 0 ? 'good' : 'bad',
+      text: 'Saldo médio dos últimos ' + withData.length + ' meses: ' + formatBRL(avgBalance) +
+        (avgBalance >= 0 ? ' — você tende a fechar no azul.' : ' — você tende a fechar no vermelho.'),
+    });
+    // mês mais caro
+    const worst = withData.slice().sort((a, b) => b.expense - a.expense)[0];
+    out.push({ level: 'info', text: 'Mês de maior gasto no período: ' + monthLabel(worst.key) +
+      ' (' + formatBRL(worst.expense) + ').' });
+    return out;
+  }
+
+  // ==========================================================================
+  //  METAS DE ECONOMIA
+  // ==========================================================================
+  // meta = { id, name, target, deadline?, contributions:[{date, amount}] }
+  function goalSaved(goal) {
+    return (goal && goal.contributions || []).reduce((s, c) => s + (Number(c.amount) || 0), 0);
+  }
+  function goalProgress(goal) {
+    const saved = goalSaved(goal);
+    const target = Number(goal && goal.target) || 0;
+    const pct = target > 0 ? Math.min((saved / target) * 100, 100) : 0;
+    return { saved, target, remaining: Math.max(target - saved, 0), pct, done: target > 0 && saved >= target };
+  }
+
+  // ==========================================================================
+  //  CSV (exportar / importar lançamentos)
+  // ==========================================================================
+  // Escapa um campo para CSV (aspas duplas, vírgula, quebra de linha).
+  function csvField(v) {
+    const s = String(v == null ? '' : v);
+    if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  // Gera CSV dos lançamentos. Cabeçalho fixo: data,tipo,categoria,valor,descricao.
+  // 'tipo' em português (receita/despesa); 'categoria' é o NOME legível.
+  function entriesToCSV(entries, categories) {
+    const catMap = {};
+    (categories || []).forEach((c) => (catMap[c.id] = c));
+    const header = ['data', 'tipo', 'categoria', 'valor', 'descricao'];
+    const rows = (entries || [])
+      .slice()
+      .sort((a, b) => (a.date < b.date ? 1 : -1))
+      .map((e) => {
+        const cat = catMap[e.categoryId];
+        return [
+          e.date,
+          e.type === 'income' ? 'receita' : 'despesa',
+          cat ? cat.name : (e.categoryId || ''),
+          String(Number(e.amount) || 0).replace('.', ','), // decimal com vírgula (pt-BR)
+          e.note || '',
+        ].map(csvField).join(',');
+      });
+    return [header.join(','), ...rows].join('\r\n');
+  }
+
+  // Faz o parse de uma linha CSV respeitando aspas. Devolve array de campos.
+  function parseCSVLine(line) {
+    const out = [];
+    let cur = '';
+    let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQ) {
+        if (ch === '"') {
+          if (line[i + 1] === '"') { cur += '"'; i++; }
+          else inQ = false;
+        } else cur += ch;
+      } else {
+        if (ch === '"') inQ = true;
+        else if (ch === ',') { out.push(cur); cur = ''; }
+        else cur += ch;
+      }
+    }
+    out.push(cur);
+    return out;
+  }
+
+  // Interpreta o CSV e devolve { entries:[...], newCategories:[...], errors:[...] }.
+  // Cria descritores de categoria (por NOME) para nomes ainda inexistentes; o
+  // chamador decide persisti-los. 'valor' aceita vírgula ou ponto decimal.
+  function csvToEntries(text, categories) {
+    const result = { entries: [], newCategories: [], errors: [] };
+    const lines = String(text || '').split(/\r?\n/).filter((l) => l.trim() !== '');
+    if (lines.length === 0) return result;
+
+    // Mapa de NOME normalizado -> categoria existente.
+    const byName = {};
+    (categories || []).forEach((c) => (byName[normName(c.name)] = c));
+    const pendingNames = {}; // nome normalizado -> descritor novo (evita duplicar)
+
+    // Detecta e pula o cabeçalho se a 1ª linha parecer um header.
+    let start = 0;
+    const first = parseCSVLine(lines[0]).map((s) => s.trim().toLowerCase());
+    if (first.includes('data') && first.includes('valor')) start = 1;
+
+    for (let i = start; i < lines.length; i++) {
+      const cols = parseCSVLine(lines[i]).map((s) => s.trim());
+      if (cols.length < 4) { result.errors.push('Linha ' + (i + 1) + ': colunas insuficientes.'); continue; }
+      const [dataRaw, tipoRaw, catRaw, valorRaw, descRaw] = cols;
+
+      const date = normDate(dataRaw);
+      if (!date) { result.errors.push('Linha ' + (i + 1) + ': data inválida ("' + dataRaw + '").'); continue; }
+
+      const t = (tipoRaw || '').toLowerCase();
+      const type = /receit|income|entrada/.test(t) ? 'income' : 'expense';
+
+      const amount = parseFloat(String(valorRaw).replace(/\./g, '').replace(',', '.')) ||
+                     parseFloat(valorRaw) || 0;
+      if (!(amount > 0)) { result.errors.push('Linha ' + (i + 1) + ': valor inválido ("' + valorRaw + '").'); continue; }
+
+      // Resolve categoria por nome; cria descritor novo se não existir.
+      const nm = normName(catRaw || 'Outros');
+      let cat = byName[nm] || pendingNames[nm];
+      if (!cat) {
+        cat = { id: slugModel(catRaw) || ('cat-' + Date.now().toString(36) + i),
+                name: catRaw || 'Outros', icon: type === 'income' ? '✨' : '📦', kind: type };
+        pendingNames[nm] = cat;
+        result.newCategories.push(cat);
+      }
+
+      result.entries.push({ type, amount, date, categoryId: cat.id, note: descRaw || '' });
+    }
+    return result;
+  }
+
+  function normName(s) {
+    return String(s || '').trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+  function slugModel(s) {
+    return normName(s).replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '');
+  }
+  // Normaliza data para 'YYYY-MM-DD'. Aceita 'YYYY-MM-DD' e 'DD/MM/YYYY'.
+  function normDate(s) {
+    const v = String(s || '').trim();
+    let m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return m[1] + '-' + m[2] + '-' + m[3];
+    m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) return m[3] + '-' + String(m[2]).padStart(2, '0') + '-' + String(m[1]).padStart(2, '0');
+    return null;
+  }
+
   // --- Exporta tudo no namespace global Model --------------------------------
   window.Model = {
     DEFAULT_CATEGORIES,
     monthKeyFor,
     currentMonthKey,
     monthLabel,
+    shortMonthLabel,
+    previousMonthKey,
     todayISO,
     formatBRL,
     entriesOfMonth,
@@ -350,5 +618,12 @@
     budgetStatus,
     buildInsights,
     answerQuestion,
+    monthlySeries,
+    monthComparison,
+    trendInsights,
+    goalSaved,
+    goalProgress,
+    entriesToCSV,
+    csvToEntries,
   };
 })();

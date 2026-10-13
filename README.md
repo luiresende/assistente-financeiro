@@ -12,14 +12,21 @@ site estático no **GitHub Pages**.
 
 ## Funcionalidades
 
-- **Login/cadastro** com e-mail e senha (Firebase Authentication).
+- **Login/cadastro** com e-mail e senha (Firebase Authentication) + **allowlist**
+  (só e-mails autorizados entram).
 - **Lançamentos**: receitas e despesas com data, valor, categoria e descrição.
 - **Categorias** editáveis (crie as suas: Pets, Assinaturas, etc.).
 - **Orçamento mensal** por categoria, com barra de progresso e alerta de estouro.
 - **Dashboard**: receitas, despesas, saldo e gráfico de gastos por categoria.
+- **Relatórios**: histórico de 6 meses (receitas × despesas × saldo), comparativo
+  com o mês anterior por categoria e insights de tendência.
+- **Metas de economia**: defina um alvo (ex.: reserva de R$ 5.000) e registre
+  aportes manuais; o app acompanha o progresso.
+- **Exportar / importar CSV**: baixe seus lançamentos ou importe de uma planilha
+  (categorias faltantes são criadas automaticamente).
 - **Assistente** (chat): responde "qual meu saldo?", "onde gastei mais?",
-  "onde posso cortar?" analisando seus próprios dados — sem API externa, sem
-  chave exposta, zero custo.
+  "onde posso cortar?", "qual a tendência?", "e minhas metas?" analisando seus
+  próprios dados — sem API externa, sem chave exposta, zero custo.
 
 ## A "IA" é baseada em regras (de propósito)
 

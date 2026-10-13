@@ -215,6 +215,27 @@ input:focus, select:focus { outline: 2px solid var(--primary); border-color: tra
 .chat-form { display: flex; gap: 10px; }
 .chat-form input { flex: 1; }
 
+/* ------------------------- Relatórios ------------------------- */
+.comparison-head { margin-bottom: 14px; font-size: 14px; line-height: 1.6; }
+.comparison-head .muted { font-size: 12px; }
+
+/* ------------------------- Metas ------------------------- */
+.goals-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.goal-card { margin-bottom: 0; }
+.goal-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.goal-top .muted { font-size: 12px; margin-left: 6px; }
+.goal-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.goal-meta { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.budget-bar.done > span { background: var(--good); }
+.goal-add { display: flex; gap: 8px; margin-top: 14px; }
+.goal-add input { flex: 1; }
+
+/* ------------------------- CSV ------------------------- */
+.csv-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 4px; }
+.csv-import-label { cursor: pointer; display: inline-flex; align-items: center; }
+.csv-status { font-size: 13px; margin-top: 10px; min-height: 18px; }
+code { background: var(--surface-2); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+
 /* ------------------------- Responsivo ------------------------- */
 @media (max-width: 820px) {
   .app { flex-direction: column; }
@@ -227,4 +248,5 @@ input:focus, select:focus { outline: 2px solid var(--primary); border-color: tra
   .dash-grid { grid-template-columns: 1fr; }
   .form-row { grid-template-columns: 1fr 1fr; }
   .budget-row { grid-template-columns: 1fr; gap: 6px; }
+  .goals-list { grid-template-columns: 1fr; }
 }

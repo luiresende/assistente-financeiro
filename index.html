@@ -44,8 +44,10 @@
         <button class="nav-item active" data-view="dashboard">📊 Dashboard</button>
         <button class="nav-item" data-view="entries">🧾 Lançamentos</button>
         <button class="nav-item" data-view="budget">🎯 Orçamento</button>
+        <button class="nav-item" data-view="reports">📈 Relatórios</button>
+        <button class="nav-item" data-view="goals">🏁 Metas</button>
         <button class="nav-item" data-view="assistant">🤖 Assistente</button>
-        <button class="nav-item" data-view="settings">⚙️ Categorias</button>
+        <button class="nav-item" data-view="settings">⚙️ Configurações</button>
       </nav>
       <div class="sidebar-footer">
         <div class="month-picker">
@@ -157,6 +159,71 @@
         </div>
       </section>
 
+      <!-- ---------- RELATÓRIOS ---------- -->
+      <section class="view hidden" data-view="reports">
+        <header class="view-head">
+          <h2>Relatórios</h2>
+          <span class="muted">Histórico dos últimos 6 meses e comparativo.</span>
+        </header>
+
+        <div class="card">
+          <h3>Receitas × Despesas (6 meses)</h3>
+          <div class="chart-wrap"><canvas id="chart-history"></canvas></div>
+          <p id="history-empty" class="muted empty hidden">Sem dados suficientes ainda.</p>
+        </div>
+
+        <div class="dash-grid">
+          <div class="card">
+            <h3>Comparativo com o mês anterior</h3>
+            <div id="comparison-head" class="comparison-head"></div>
+            <table class="table" id="comparison-table">
+              <thead>
+                <tr><th>Categoria</th><th class="right">Mês anterior</th>
+                    <th class="right">Mês atual</th><th class="right">Variação</th></tr>
+              </thead>
+              <tbody id="comparison-body"></tbody>
+            </table>
+            <p id="comparison-empty" class="muted empty hidden">Sem gastos para comparar.</p>
+          </div>
+          <div class="card">
+            <h3>📈 Tendência</h3>
+            <div id="trend-list" class="insights"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- METAS ---------- -->
+      <section class="view hidden" data-view="goals">
+        <header class="view-head">
+          <h2>Metas de economia</h2>
+          <button id="open-goal-form" class="btn btn-primary">+ Nova meta</button>
+        </header>
+
+        <form id="goal-form" class="card entry-form hidden">
+          <input type="hidden" id="goal-id" />
+          <div class="form-row">
+            <label>Nome
+              <input type="text" id="goal-name" placeholder="Ex.: Reserva de emergência" required />
+            </label>
+            <label>Valor-alvo (R$)
+              <input type="number" id="goal-target" step="0.01" min="0" required />
+            </label>
+            <label>Data limite (opcional)
+              <input type="date" id="goal-deadline" />
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="button" id="cancel-goal" class="btn btn-ghost">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Salvar meta</button>
+          </div>
+        </form>
+
+        <div id="goals-list" class="goals-list"></div>
+        <p id="goals-empty" class="muted empty hidden">
+          Nenhuma meta ainda. Crie uma para começar a guardar com objetivo.
+        </p>
+      </section>
+
       <!-- ---------- ASSISTENTE (CHAT) ---------- -->
       <section class="view hidden" data-view="assistant">
         <header class="view-head">
@@ -170,6 +237,8 @@
             <button class="chip" data-q="Onde gastei mais?">Onde gastei mais?</button>
             <button class="chip" data-q="Como está meu orçamento?">Como está meu orçamento?</button>
             <button class="chip" data-q="Onde posso cortar?">Onde posso cortar?</button>
+            <button class="chip" data-q="Qual a tendência?">Qual a tendência?</button>
+            <button class="chip" data-q="E minhas metas?">E minhas metas?</button>
           </div>
           <form id="chat-form" class="chat-form">
             <input type="text" id="chat-input" placeholder="Pergunte algo..." autocomplete="off" />
@@ -178,13 +247,32 @@
         </div>
       </section>
 
-      <!-- ---------- CATEGORIAS ---------- -->
+      <!-- ---------- CONFIGURAÇÕES ---------- -->
       <section class="view hidden" data-view="settings">
         <header class="view-head">
-          <h2>Categorias</h2>
-          <span class="muted">Personalize as categorias de receita e despesa.</span>
+          <h2>Configurações</h2>
+          <span class="muted">Categorias e dados (exportar / importar).</span>
         </header>
+
         <div class="card">
+          <h3>Dados (CSV)</h3>
+          <p class="muted" style="margin-top:0">
+            Exporte todos os seus lançamentos ou importe de uma planilha. Colunas:
+            <code>data, tipo, categoria, valor, descricao</code>. Categorias que não
+            existirem são criadas automaticamente.
+          </p>
+          <div class="csv-actions">
+            <button id="export-csv" class="btn btn-primary">⬇️ Exportar CSV</button>
+            <label class="btn btn-ghost csv-import-label">
+              ⬆️ Importar CSV
+              <input type="file" id="import-csv" accept=".csv,text/csv" hidden />
+            </label>
+          </div>
+          <div id="csv-status" class="csv-status muted"></div>
+        </div>
+
+        <div class="card">
+          <h3>Categorias</h3>
           <form id="category-form" class="form-row">
             <label>Nome
               <input type="text" id="cat-name" placeholder="Ex.: Pets" required />

@@ -77,11 +77,12 @@
     return 'e-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
   }
 
-  // Configurações padrão (categorias de fábrica, orçamentos vazios).
+  // Configurações padrão (categorias de fábrica, orçamentos e metas vazios).
   function defaultSettings() {
     return {
       categories: window.Model.DEFAULT_CATEGORIES.map((c) => ({ ...c })),
       budgets: {},
+      goals: [],
     };
   }
 
@@ -114,6 +115,16 @@
       localStorage.setItem(LS_ENTRIES, JSON.stringify(list));
       return e;
     },
+    async saveEntriesBatch(entries) {
+      const list = await this.listEntries();
+      (entries || []).forEach((entry) => {
+        const e = { ...entry };
+        if (!e.id) e.id = uid4();
+        list.push(e);
+      });
+      localStorage.setItem(LS_ENTRIES, JSON.stringify(list));
+      return (entries || []).length;
+    },
     async removeEntry(id) {
       const list = (await this.listEntries()).filter((x) => x.id !== id);
       localStorage.setItem(LS_ENTRIES, JSON.stringify(list));
@@ -122,7 +133,9 @@
     async getSettings() {
       try {
         const s = JSON.parse(localStorage.getItem(LS_SETTINGS));
-        return s && s.categories ? s : defaultSettings();
+        if (!s || !s.categories) return defaultSettings();
+        if (!Array.isArray(s.goals)) s.goals = []; // compat com dados antigos
+        return s;
       } catch { return defaultSettings(); }
     },
     async saveSettings(settings) {
@@ -206,6 +219,23 @@
         await entriesCol().doc(id).set(e, { merge: true });
         return { id, ...e };
       },
+      // Importação em lote (CSV). Grava em batches de 400 (limite do Firestore
+      // é 500 operações por batch).
+      async saveEntriesBatch(entries) {
+        const list = entries || [];
+        for (let i = 0; i < list.length; i += 400) {
+          const chunk = list.slice(i, i + 400);
+          const batch = db.batch();
+          chunk.forEach((entry) => {
+            const e = { ...entry };
+            const id = e.id || uid4();
+            delete e.id;
+            batch.set(entriesCol().doc(id), e, { merge: true });
+          });
+          await batch.commit();
+        }
+        return list.length;
+      },
       async removeEntry(id) {
         await entriesCol().doc(id).delete();
       },
@@ -224,6 +254,7 @@
             ? data.categories
             : defaultSettings().categories,
           budgets: data.budgets || {},
+          goals: Array.isArray(data.goals) ? data.goals : [],
         };
       },
       async saveSettings(settings) {
