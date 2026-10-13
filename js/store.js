@@ -19,8 +19,27 @@
   const LS_ENTRIES = 'financas.entries.v1';
   const LS_SETTINGS = 'financas.settings.v1';
 
+  // ==========================================================================
+  //  ALLOWLIST — controle de acesso: SÓ estes e-mails podem usar o app.
+  // --------------------------------------------------------------------------
+  //  Um e-mail fora desta lista até consegue criar login no Firebase Auth, mas
+  //  é imediatamente deslogado pelo app e NÃO lê/escreve nada (as Firestore
+  //  Security Rules barram no servidor — ver firestore.rules).
+  //
+  //  >>> MANTENHA ESTA LISTA EM SINCRONIA com allowed() em firestore.rules. <<<
+  //  Para dar acesso a alguém: adicione o e-mail (minúsculo) nos DOIS lugares
+  //  e republique as regras no console do Firebase.
+  // ==========================================================================
+  const ALLOWED_EMAILS = [
+    'lcresendealm@gmail.com',
+  ];
+
   function norm(email) {
     return (email || '').trim().toLowerCase();
+  }
+
+  function isAllowed(email) {
+    return ALLOWED_EMAILS.map(norm).includes(norm(email));
   }
 
   function configLooksReal(cfg) {
@@ -136,16 +155,41 @@
       get currentUser() { return current; },
 
       onAuth(cb) {
-        return auth.onAuthStateChanged((fbUser) => {
-          current = fbUser ? { uid: fbUser.uid, email: norm(fbUser.email) } : null;
+        return auth.onAuthStateChanged(async (fbUser) => {
+          if (!fbUser) {
+            current = null;
+            cb(null);
+            return;
+          }
+          const email = norm(fbUser.email);
+          // CONTROLE DE ACESSO: e-mail fora da allowlist é deslogado na hora.
+          // (As Security Rules também barram no servidor — defesa em camadas.)
+          if (!isAllowed(email)) {
+            current = null;
+            try { await auth.signOut(); } catch (_) {}
+            cb({ denied: true, email });
+            return;
+          }
+          current = { uid: fbUser.uid, email };
           cb(current);
         });
       },
 
       async login(email, password) {
+        if (!isAllowed(email)) {
+          const err = new Error('E-mail sem permissão de acesso.');
+          err.code = 'app/not-allowed';
+          throw err;
+        }
         await auth.signInWithEmailAndPassword(norm(email), password);
       },
       async signup(email, password) {
+        // Impede criar conta para e-mail fora da allowlist.
+        if (!isAllowed(email)) {
+          const err = new Error('E-mail sem permissão de acesso.');
+          err.code = 'app/not-allowed';
+          throw err;
+        }
         await auth.createUserWithEmailAndPassword(norm(email), password);
       },
       async logout() { await auth.signOut(); },
@@ -194,4 +238,6 @@
   // helpers expostos
   window.Store.normEmail = norm;
   window.Store.defaultSettings = defaultSettings;
+  window.Store.isAllowed = isAllowed;        // allowlist (ver ALLOWED_EMAILS)
+  window.Store.allowedEmails = ALLOWED_EMAILS;
 })();

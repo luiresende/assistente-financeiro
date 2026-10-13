@@ -94,6 +94,8 @@
       'auth/email-already-in-use': 'Este e-mail já tem conta. Faça login.',
       'auth/weak-password': 'Senha muito fraca (mínimo 6 caracteres).',
       'auth/too-many-requests': 'Muitas tentativas. Tente mais tarde.',
+      'app/not-allowed': 'Este e-mail não tem permissão de acesso. ' +
+        'Fale com o responsável para ser liberado.',
     };
     return map[code] || (err && err.message) || 'Não foi possível autenticar.';
   }
@@ -486,6 +488,9 @@
   }
 
   async function init() {
+    // Mostra o login por padrão no boot; onAuth corrige se já houver sessão.
+    enterAuth();
+
     setupAuthUI();
     setupNav();
     setupEntries();
@@ -502,6 +507,16 @@
 
     // Reage ao estado de autenticação (local = já logado; firebase = real).
     Store.onAuth(async (user) => {
+      // Acesso negado pela allowlist: volta ao login com aviso claro.
+      if (user && user.denied) {
+        state.user = null;
+        enterAuth();
+        const box = $('#auth-error');
+        box.textContent = 'O e-mail ' + (user.email || '') +
+          ' não tem permissão de acesso. Fale com o responsável para ser liberado.';
+        show(box);
+        return;
+      }
       state.user = user;
       if (user) {
         await loadData();
